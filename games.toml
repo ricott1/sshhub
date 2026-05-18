@@ -1,0 +1,31 @@
+# Catalogue of SSH games the hub knows how to forward to.
+# Each entry produces one row in the lobby menu. When the user picks an entry,
+# the hub opens an outbound SSH connection to (host, port) and bridges the
+# user's session through. host/port can be loopback for local dev.
+
+[[games]]
+key = "sshattrick"
+name = "ssHattrick"
+description = "Hockey in your terminal."
+host = "127.0.0.1"
+port = 3020
+screen_size = [160, 50]
+inactivity_secs = 60
+
+[[games]]
+key = "rebels"
+name = "rebels in the sky"
+description = "Anarchic space pirates playing basketball in your terminal."
+host = "ssh.rebels-in-the-sky.com"
+port = 3788
+screen_size = [160, 48]
+inactivity_secs = 120
+
+[[games]]
+key = "stonks"
+name = "stonks"
+description = "A multiplayer terminal stock market simulator."
+host = "ssh.frittura.org"
+port = 3030
+screen_size = [160, 48]
+inactivity_secs = 300
