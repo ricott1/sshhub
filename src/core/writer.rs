@@ -53,18 +53,44 @@ impl SSHWriterProxy {
 
     /// Hand the current sink off to a background task. Lets `Drop` impls
     /// (which can't await) still get the final alt-screen-cleanup bytes out
-    /// before the channel closes.
+    /// before the channel closes. Callers that may re-create another `Tui`
+    /// on the same channel (e.g. the hub re-entering the lobby after a
+    /// recoverable bridge failure) should prefer this over the close
+    /// variant below.
     pub fn send_in_background(&mut self) {
-        if self.sink.is_empty() {
+        let (handle, channel_id, data) = self.take_background_payload();
+        if data.is_empty() {
             return;
         }
-        let handle = self.handle.clone();
-        let channel_id = self.channel_id;
-        let data = std::mem::take(&mut self.sink);
-        self.flushing = false;
         tokio::spawn(async move {
             let _ = handle.data(channel_id, data).await;
         });
+    }
+
+    /// Like `send_in_background`, but the spawned task closes the SSH
+    /// channel after the final flush (sending `eof` then `close`). Use this
+    /// from a `Drop` impl whose firing means "the session is over" - a
+    /// game whose `Tui` drop is the user leaving wants the channel to
+    /// close so the ssh client doesn't hang until russh's
+    /// `inactivity_timeout` fires.
+    ///
+    /// Bundling data + eof + close inside one `tokio::spawn` guarantees
+    /// they're queued on the russh `Handle` in order.
+    pub fn send_and_close_in_background(&mut self) {
+        let (handle, channel_id, data) = self.take_background_payload();
+        tokio::spawn(async move {
+            if !data.is_empty() {
+                let _ = handle.data(channel_id, data).await;
+            }
+            let _ = handle.eof(channel_id).await;
+            let _ = handle.close(channel_id).await;
+        });
+    }
+
+    fn take_background_payload(&mut self) -> (Handle, ChannelId, Vec<u8>) {
+        let data = std::mem::take(&mut self.sink);
+        self.flushing = false;
+        (self.handle.clone(), self.channel_id, data)
     }
 }
 
