@@ -1,5 +1,5 @@
-use crate::core::channel::AppChannel;
-use crate::core::trait_def::{Credential, SshGame};
+use crate::channel::AppChannel;
+use crate::trait_def::{Credential, SshGame};
 use anyhow::{anyhow, Context};
 use russh::server::{self, Auth, Msg, Session};
 use russh::{Channel, ChannelId, Pty};

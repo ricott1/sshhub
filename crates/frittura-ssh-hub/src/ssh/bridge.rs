@@ -1,5 +1,5 @@
 use crate::config::GameMetadata;
-use crate::core::Credential;
+use frittura_ssh_core::Credential;
 use anyhow::Context;
 use russh::client::{self, Config, Handler};
 use russh::keys::PublicKey;

@@ -7,9 +7,9 @@ use log4rs::{
     Config,
 };
 use std::sync::Arc;
-use sshhub::core::run_server;
-use sshhub::ssh::HubGame;
-use sshhub::{config, store_path, AppResult};
+use frittura_ssh_core::run_server;
+use frittura_ssh_hub::ssh::HubGame;
+use frittura_ssh_hub::{config, store_path, AppResult};
 
 const DEFAULT_PORT: u16 = 2222;
 const DEFAULT_GAMES_PATH: &str = "games.toml";

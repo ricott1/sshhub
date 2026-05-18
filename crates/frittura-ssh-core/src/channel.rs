@@ -1,6 +1,6 @@
-use crate::core::client::AuthedSession;
-use crate::core::trait_def::{SshGame, SshSession};
-use crate::core::writer::SSHWriterProxy;
+use crate::client::AuthedSession;
+use crate::trait_def::{SshGame, SshSession};
+use crate::writer::SSHWriterProxy;
 use anyhow::anyhow;
 use russh::server::Handle;
 use russh::ChannelId;

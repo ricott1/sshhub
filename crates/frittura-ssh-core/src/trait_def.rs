@@ -1,5 +1,5 @@
-use crate::core::event::TerminalEvent;
-use crate::core::writer::SSHWriterProxy;
+use crate::event::TerminalEvent;
+use crate::writer::SSHWriterProxy;
 use russh::server::Handle;
 use russh::ChannelId;
 use std::sync::Arc;
@@ -85,7 +85,7 @@ pub fn spawn_event_converter(
             tokio::select! {
                 bytes = data_rx.recv() => {
                     let Some(bytes) = bytes else { break; };
-                    if let Some(ev) = crate::core::input::convert_data_to_terminal_event(&bytes) {
+                    if let Some(ev) = crate::input::convert_data_to_terminal_event(&bytes) {
                         if tx.send(ev).await.is_err() { break; }
                     }
                 }

@@ -1,5 +1,5 @@
 use crate::config::GameMetadata;
-use crate::core::SSHWriterProxy;
+use frittura_ssh_core::SSHWriterProxy;
 use crate::ui;
 use crate::AppResult;
 use crossterm::cursor::{Hide, Show};

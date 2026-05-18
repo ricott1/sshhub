@@ -8,16 +8,16 @@ SSH hub to pass on connection to other ssh games.
 
 ## For game devs
 
-The crate also exposes the SSH/ratatui scaffolding I use across my games as a library, behind the `core` feature. Add to your `Cargo.toml`:
+The repo is a workspace with two crates: `frittura-ssh-hub` (the lobby binary) and `frittura-ssh-core` (the SSH/ratatui scaffolding I use across my games as a library). Add the core crate to your `Cargo.toml`:
 
 ```toml
-sshhub = { git = "https://github.com/ricott1/sshhub", default-features = false }
+frittura-ssh-core = { git = "https://github.com/ricott1/sshhub" }
 ```
 
 and implement the `SshGame` trait:
 
 ```rust
-use sshhub::core::{run_server, Credential, SshGame, SshSession};
+use frittura_ssh_core::{run_server, Credential, SshGame, SshSession};
 
 struct MyGame { /* ... */ }
 

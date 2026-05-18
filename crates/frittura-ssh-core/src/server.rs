@@ -1,5 +1,5 @@
-use crate::core::client::AppClient;
-use crate::core::trait_def::SshGame;
+use crate::client::AppClient;
+use crate::trait_def::SshGame;
 use russh::server::{Config, Server};
 use std::sync::Arc;
 use std::time::Duration;
@@ -8,7 +8,7 @@ const HOST_KEY_PATH: &str = "./keys";
 
 /// Stand up the shared SSH server for a game. Blocks until the server stops.
 pub async fn run_server<G: SshGame>(game: Arc<G>, port: u16) -> anyhow::Result<()> {
-    let private_key = crate::core::keys::load_or_generate(HOST_KEY_PATH)?;
+    let private_key = crate::keys::load_or_generate(HOST_KEY_PATH)?;
     let config = Config {
         inactivity_timeout: Some(G::SERVER_INACTIVITY),
         auth_rejection_time: Duration::from_secs(3),

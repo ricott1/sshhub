@@ -1,5 +1,5 @@
 use crate::config::GameMetadata;
-use crate::core::{Credential, SshGame, SshSession};
+use frittura_ssh_core::{Credential, SshGame, SshSession};
 use crate::ssh::session::run_hub_session;
 use std::sync::Arc;
 use std::time::Duration;

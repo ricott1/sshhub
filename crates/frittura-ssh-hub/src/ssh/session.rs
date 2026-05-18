@@ -1,5 +1,5 @@
 use crate::config::GameMetadata;
-use crate::core::{
+use frittura_ssh_core::{
     convert_data_to_terminal_event, kick_warning_secs, Credential, SSHWriterProxy, SshSession,
     TerminalEvent,
 };

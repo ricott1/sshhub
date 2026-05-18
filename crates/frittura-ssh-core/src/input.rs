@@ -1,4 +1,4 @@
-use crate::core::event::TerminalEvent;
+use crate::event::TerminalEvent;
 use anyhow::anyhow;
 use crossterm::event::{KeyEventKind, KeyModifiers};
 
