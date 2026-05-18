@@ -1,34 +1,10 @@
 # sshhub
 
-One SSH connection, all my games. Connect to the hub, pick a game from the lobby, and your session gets bridged to the upstream game server transparently.
+SSH hub to pass on connection to other ssh games.
 
 ## Just try it out!
 
 `ssh frittura.org`
-
-Use the arrow keys (or `j`/`k`) to move, Enter to connect, Esc to leave.
-
-## Run it yourself
-
-You need the [rust toolchain](https://www.rust-lang.org/tools/install). Then:
-
-```
-cargo build --release
-./target/release/sshhub --port 2222
-```
-
-The lobby reads from `games.toml` next to the binary. Each entry becomes a row in the menu; on selection sshhub opens an outbound SSH connection to `host:port` and bridges the bytes back and forth.
-
-```toml
-[[games]]
-key = "sshattrick"
-name = "ssHattrick"
-description = "Hockey in your terminal."
-host = "127.0.0.1"
-port = 3020
-```
-
-Binding to port 22 in production needs either `setcap 'cap_net_bind_service=+ep'` on the binary, systemd socket activation, or an iptables redirect.
 
 ## For game devs
 
