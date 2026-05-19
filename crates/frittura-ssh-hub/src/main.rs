@@ -15,7 +15,7 @@ const DEFAULT_PORT: u16 = 2222;
 const DEFAULT_GAMES_PATH: &str = "games.toml";
 
 #[derive(Parser, Debug)]
-#[clap(name="sshhub", about = "SSH lobby for terminal games", author, version, long_about = None)]
+#[clap(name="frittura-ssh-hub", about = "SSH lobby for terminal games", author, version, long_about = None)]
 struct Args {
     #[clap(long, short = 'p', action = ArgAction::Set, help = "Port to listen on")]
     port: Option<u16>,
@@ -25,7 +25,7 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> AppResult<()> {
-    let logfile_path = store_path("sshhub.log")?;
+    let logfile_path = store_path("frittura-ssh-hub.log")?;
     let logfile = FileAppender::builder()
         .append(false)
         .encoder(Box::new(PatternEncoder::new("{l} - {m}\n")))
