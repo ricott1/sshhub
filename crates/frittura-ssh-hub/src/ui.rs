@@ -3,7 +3,7 @@ use ratatui::{
     layout::{Constraint, Layout, Margin},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Clear, Paragraph},
+    widgets::{Block, Clear, Paragraph},
     Frame,
 };
 
@@ -31,7 +31,8 @@ pub fn render_lobby_menu(
         Constraint::Length(1), // pad
         Constraint::Length(1), // controls hint
     ])
-    .split(area.inner(Margin::new(2, 1)));
+    .split(area.inner(Margin::new(2, 2)));
+    frame.render_widget(Block::bordered(), area);
 
     frame.render_widget(
         Line::styled(

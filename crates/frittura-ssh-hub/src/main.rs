@@ -1,4 +1,7 @@
 use clap::{ArgAction, Parser};
+use frittura_ssh_core::run_server;
+use frittura_ssh_hub::ssh::HubGame;
+use frittura_ssh_hub::{config, store_path, AppResult};
 use log::LevelFilter;
 use log4rs::{
     append::file::FileAppender,
@@ -7,15 +10,12 @@ use log4rs::{
     Config,
 };
 use std::sync::Arc;
-use frittura_ssh_core::run_server;
-use frittura_ssh_hub::ssh::HubGame;
-use frittura_ssh_hub::{config, store_path, AppResult};
 
 const DEFAULT_PORT: u16 = 2222;
 const DEFAULT_GAMES_PATH: &str = "games.toml";
 
 #[derive(Parser, Debug)]
-#[clap(name="sshhub", about = "SSH lobby that proxies to ricott1's terminal games", author, version, long_about = None)]
+#[clap(name="sshhub", about = "SSH lobby for terminal games", author, version, long_about = None)]
 struct Args {
     #[clap(long, short = 'p', action = ArgAction::Set, help = "Port to listen on")]
     port: Option<u16>,

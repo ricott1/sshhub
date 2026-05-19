@@ -1,6 +1,6 @@
 use crate::client::AuthedSession;
 use crate::trait_def::{SshGame, SshSession};
-use crate::writer::SSHWriterProxy;
+use crate::writer::SshWriterProxy;
 use anyhow::anyhow;
 use russh::server::Handle;
 use russh::ChannelId;
@@ -59,7 +59,7 @@ impl<G: SshGame> AppChannel<G> {
             username: self.authed.username.clone(),
             auth: self.authed.auth.clone(),
             term,
-            writer: SSHWriterProxy::new(id, handle.clone()),
+            writer: SshWriterProxy::new(id, handle.clone()),
             channel_id: id,
             handle,
             initial_size: (width, height),

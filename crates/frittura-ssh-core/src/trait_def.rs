@@ -1,17 +1,17 @@
 use crate::event::TerminalEvent;
-use crate::writer::SSHWriterProxy;
+use crate::writer::SshWriterProxy;
 use russh::server::Handle;
 use russh::ChannelId;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc;
 
-/// What the user proved at the front door. One unified type instead of
-/// `(&str credential, AuthKind kind)` - the variants encode the auth
-/// method, the payloads are the typed data the game can act on directly.
+/// What the user proved at the front door.
 #[derive(Clone, Debug)]
 pub enum Credential {
+    /// The plaintext password the client sent in `password` auth.
     Password(String),
+    /// The parsed public key the client offered in `publickey` auth.
     PublicKey(russh::keys::PublicKey),
 }
 
@@ -27,11 +27,10 @@ pub trait SshGame: Send + Sync + 'static {
     /// connections idle for this long get dropped by russh itself.
     const SERVER_INACTIVITY: Duration;
 
-    /// Per-session state the game produces at auth time. Whatever the game
-    /// wants downstream (the loaded save, the parsed credential, an
-    /// `AgentId`, ...). Use `()` if the game doesn't need any. `Clone` is
-    /// required so the runtime can hand a fresh copy to each channel when
-    /// an SSH connection opens multiple (rare in practice).
+    /// Per-session state the game produces at auth time (a loaded save, a
+    /// session id, parsed credential, etc). Use `()` if the game doesn't
+    /// need any. `Clone` is required so the runtime can hand a fresh copy
+    /// to each channel when an SSH connection opens multiple.
     type Auth: Send + Sync + Clone + 'static;
 
     /// Validate the user's credential and produce per-session state.
@@ -53,22 +52,32 @@ pub trait SshGame: Send + Sync + 'static {
 }
 
 /// Everything the runtime hands a game when a new SSH session is ready.
-/// Raw `data_rx` is exposed so the hub can byte-bridge to an upstream SSH
-/// server without re-serialization; most games will call
-/// `core::spawn_event_converter(data_rx, resize_rx)` instead to get a single
-/// `Receiver<TerminalEvent>`.
+/// Raw `data_rx` is exposed for byte-bridging use cases; most games will
+/// call [`spawn_event_converter`] to get a single
+/// [`Receiver<TerminalEvent>`](TerminalEvent) instead.
 pub struct SshSession<A> {
+    /// The username the client offered at auth.
     pub username: String,
     /// Game-defined per-session state produced by `authenticate`.
     pub auth: A,
-    /// `TERM` advertised by the client at `pty_request` time. Most games can
-    /// ignore this; the hub forwards it to the upstream game on the bridge.
+    /// `TERM` env-var the client advertised at `pty_request` time (e.g.
+    /// `xterm-256color`). Most games can ignore it; useful only when you
+    /// need to relay or echo it to another process.
     pub term: String,
-    pub writer: SSHWriterProxy,
+    /// Owned writer for sending bytes back to the client. Use it as a
+    /// ratatui `CrosstermBackend` target.
+    pub writer: SshWriterProxy,
+    /// Raw russh channel id, in case the game needs to drive the channel
+    /// directly via `handle`.
     pub channel_id: ChannelId,
+    /// Raw russh `Handle`, in case the game needs to send data/eof/close
+    /// outside the writer.
     pub handle: Handle,
+    /// `(cols, rows)` the client advertised at `pty_request` time.
     pub initial_size: (u32, u32),
+    /// Raw inbound bytes from the SSH client. Yields `None` on disconnect.
     pub data_rx: mpsc::Receiver<Vec<u8>>,
+    /// Window-change events `(cols, rows)`. Yields `None` on disconnect.
     pub resize_rx: mpsc::Receiver<(u32, u32)>,
 }
 

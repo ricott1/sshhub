@@ -2,7 +2,7 @@
 name = "frittura-ssh-hub"
 version = "0.1.0"
 edition = "2021"
-description = "SSH lobby that proxies to ricott1's frittura terminal games."
+description = "SSH lobby that proxies to frittura terminal games."
 license = "GPL-3.0-only"
 repository = "https://github.com/ricott1/frittura-ssh"
 

@@ -1,6 +1,6 @@
 use crate::config::GameMetadata;
 use frittura_ssh_core::{
-    convert_data_to_terminal_event, kick_warning_secs, Credential, SSHWriterProxy, SshSession,
+    convert_data_to_terminal_event, kick_warning_secs, Credential, SshWriterProxy, SshSession,
     TerminalEvent,
 };
 use crate::ssh::bridge::{self, BridgeError};
@@ -39,7 +39,7 @@ pub async fn run_hub_session(games: Arc<Vec<GameMetadata>>, session: SshSession<
         // fresh writer from the still-live handle + channel_id.
         let lobby_writer = writer
             .take()
-            .unwrap_or_else(|| SSHWriterProxy::new(channel_id, handle.clone()));
+            .unwrap_or_else(|| SshWriterProxy::new(channel_id, handle.clone()));
 
         let LobbyOutcome {
             selected,
@@ -62,7 +62,7 @@ pub async fn run_hub_session(games: Arc<Vec<GameMetadata>>, session: SshSession<
 
         let Some(game) = selected else {
             log::info!("User {username} left the hub");
-            break;
+            return;
         };
 
         log::info!(
@@ -114,7 +114,7 @@ pub async fn run_hub_session(games: Arc<Vec<GameMetadata>>, session: SshSession<
 struct LobbyArgs<'a> {
     games: &'a Arc<Vec<GameMetadata>>,
     username: String,
-    writer: SSHWriterProxy,
+    writer: SshWriterProxy,
     initial_size: (u32, u32),
     data_rx: mpsc::Receiver<Vec<u8>>,
     resize_rx: mpsc::Receiver<(u32, u32)>,
@@ -231,15 +231,11 @@ async fn run_lobby(args: LobbyArgs<'_>) -> LobbyOutcome {
         }
     }
 
-    // If the user quit (Esc or idle-kick), the session is over - flush the
-    // alt-screen-cleanup bytes and close the SSH channel atomically so the
-    // user's terminal returns to normal and the ssh client disconnects.
-    // Selection-into-bridge and AuthRejected-re-entry paths must leave the
-    // channel open instead.
     if quit && selected.is_none() {
-        tui.close_channel_on_drop();
+        tui.close().await;
+    } else {
+        drop(tui);
     }
-    drop(tui);
 
     LobbyOutcome {
         selected,
