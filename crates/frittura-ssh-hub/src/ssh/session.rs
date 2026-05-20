@@ -1,4 +1,4 @@
-use crate::config::GameMetadata;
+use crate::config::{GameMetadata, Preview};
 use frittura_ssh_core::{
     convert_data_to_terminal_event, kick_warning_secs, Credential, SshWriterProxy, SshSession,
     TerminalEvent,
@@ -24,6 +24,7 @@ pub async fn run_hub_session(games: Arc<Vec<GameMetadata>>, session: SshSession<
         channel_id,
         handle,
         initial_size,
+        exec_command,
         mut data_rx,
         mut resize_rx,
     } = session;
@@ -32,6 +33,42 @@ pub async fn run_hub_session(games: Arc<Vec<GameMetadata>>, session: SshSession<
 
     let mut writer = Some(writer);
     let mut flash: Option<String> = None;
+
+    if let Some(name) = exec_command.as_deref() {
+        match games.iter().find(|g| g.key == name) {
+            Some(game) => {
+                log::info!("User {username} requested direct exec -> {}", game.key);
+                let result = bridge_to(
+                    game,
+                    channel_id,
+                    &handle,
+                    &username,
+                    &credential,
+                    &term,
+                    initial_size.0,
+                    initial_size.1,
+                    &mut data_rx,
+                    &mut resize_rx,
+                )
+                .await;
+                match result {
+                    Ok(()) => {}
+                    Err(BridgeError::AuthRejected) => {
+                        log::info!("Direct exec to {} auth-rejected", game.key);
+                    }
+                    Err(BridgeError::Other(e)) => {
+                        log::warn!("Direct exec to {} ended with error: {e}", game.key);
+                    }
+                }
+                let _ = handle.close(channel_id).await;
+                return;
+            }
+            None => {
+                log::info!("User {username} requested unknown game '{name}'");
+                flash = Some(format!("unknown game '{name}'"));
+            }
+        }
+    }
 
     loop {
         // The writer is consumed by the Tui inside run_lobby and dropped on
@@ -72,18 +109,18 @@ pub async fn run_hub_session(games: Arc<Vec<GameMetadata>>, session: SshSession<
             game.port
         );
 
-        let bridge_result = bridge::run(bridge::BridgeArgs {
+        let bridge_result = bridge_to(
+            &game,
             channel_id,
-            handle: handle.clone(),
-            username: username.clone(),
-            credential: credential.clone(),
-            game: game.clone(),
-            term: term.clone(),
-            width: current_width,
-            height: current_height,
-            data_rx: &mut data_rx,
-            resize_rx: &mut resize_rx,
-        })
+            &handle,
+            &username,
+            &credential,
+            &term,
+            current_width,
+            current_height,
+            &mut data_rx,
+            &mut resize_rx,
+        )
         .await;
 
         match bridge_result {
@@ -103,12 +140,40 @@ pub async fn run_hub_session(games: Arc<Vec<GameMetadata>>, session: SshSession<
                     game.host,
                     game.port
                 );
-                break;
+                flash = Some(format!("could not connect to {}", game.key));
             }
         }
     }
 
     let _ = handle.close(channel_id).await;
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn bridge_to(
+    game: &GameMetadata,
+    channel_id: russh::ChannelId,
+    handle: &russh::server::Handle,
+    username: &str,
+    credential: &Credential,
+    term: &str,
+    width: u32,
+    height: u32,
+    data_rx: &mut mpsc::Receiver<Vec<u8>>,
+    resize_rx: &mut mpsc::Receiver<(u32, u32)>,
+) -> Result<(), BridgeError> {
+    bridge::run(bridge::BridgeArgs {
+        channel_id,
+        handle: handle.clone(),
+        username: username.to_string(),
+        credential: credential.clone(),
+        game: game.clone(),
+        term: term.to_string(),
+        width,
+        height,
+        data_rx,
+        resize_rx,
+    })
+    .await
 }
 
 struct LobbyArgs<'a> {
@@ -155,6 +220,7 @@ async fn run_lobby(args: LobbyArgs<'_>) -> LobbyOutcome {
     };
 
     let mut selected_idx: usize = 0;
+    let mut selected_at = Instant::now();
     let mut dirty = true;
     let mut last_input_at = Instant::now();
     let mut current_width = initial_size.0;
@@ -185,10 +251,12 @@ async fn run_lobby(args: LobbyArgs<'_>) -> LobbyOutcome {
                             KeyCode::Esc => quit = true,
                             KeyCode::Up | KeyCode::Char('k') => {
                                 selected_idx = (selected_idx + n - 1) % n;
+                                selected_at = Instant::now();
                                 dirty = true;
                             }
                             KeyCode::Down | KeyCode::Char('j') => {
                                 selected_idx = (selected_idx + 1) % n;
+                                selected_at = Instant::now();
                                 dirty = true;
                             }
                             KeyCode::Enter => {
@@ -203,7 +271,10 @@ async fn run_lobby(args: LobbyArgs<'_>) -> LobbyOutcome {
                             _ => {}
                         }
                     }
-                    TerminalEvent::Resize(_, _) | TerminalEvent::Mouse(_) | TerminalEvent::Quit => {}
+                    TerminalEvent::Resize(_, _)
+                    | TerminalEvent::Mouse(_)
+                    | TerminalEvent::Quit
+                    | TerminalEvent::IdleWarning(_) => {}
                 }
             }
             change = resize_rx.recv() => {
@@ -222,8 +293,18 @@ async fn run_lobby(args: LobbyArgs<'_>) -> LobbyOutcome {
                     quit = true;
                     continue;
                 }
-                if dirty || warning.is_some() {
-                    let _ = tui.draw_lobby(games, selected_idx, warning, flash.as_deref());
+                let animated = matches!(
+                    games.get(selected_idx).and_then(|g| g.preview.as_ref()),
+                    Some(Preview::Animated(_))
+                );
+                if dirty || warning.is_some() || animated {
+                    let _ = tui.draw_lobby(
+                        games,
+                        selected_idx,
+                        warning,
+                        flash.as_deref(),
+                        selected_at.elapsed(),
+                    );
                     let _ = tui.push_data().await;
                     dirty = false;
                 }

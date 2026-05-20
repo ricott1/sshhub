@@ -1,9 +1,10 @@
 use crate::config::GameMetadata;
-use anyhow::Context;
+use crate::AppResult;
+use anyhow::{anyhow, Context};
 use frittura_ssh_core::Credential;
-use russh::client::{self, Config, Handler};
+use russh::client::{self, Config, Handler, Msg};
 use russh::keys::PublicKey;
-use russh::{ChannelMsg, Disconnect};
+use russh::{Channel, ChannelMsg, Disconnect};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc;
@@ -88,14 +89,16 @@ pub async fn run(args: BridgeArgs<'_>) -> Result<(), BridgeError> {
         .context("outbound channel_open_session failed")?;
 
     outbound
-        .request_pty(false, &args.term, args.width, args.height, 0, 0, &[])
+        .request_pty(true, &args.term, args.width, args.height, 0, 0, &[])
         .await
         .context("outbound request_pty failed")?;
+    await_request_reply(&mut outbound, "pty-req").await?;
 
     outbound
-        .request_shell(false)
+        .request_shell(true)
         .await
         .context("outbound request_shell failed")?;
+    await_request_reply(&mut outbound, "shell").await?;
 
     loop {
         tokio::select! {
@@ -149,4 +152,25 @@ impl From<russh::Error> for BridgeError {
     fn from(e: russh::Error) -> Self {
         BridgeError::Other(e.into())
     }
+}
+
+const REQUEST_REPLY_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// Block on the Success/Failure reply for a `want_reply: true` request.
+async fn await_request_reply(chan: &mut Channel<Msg>, req: &'static str) -> AppResult<()> {
+    let wait = async {
+        loop {
+            match chan.wait().await {
+                Some(ChannelMsg::Success) => return Ok(()),
+                Some(ChannelMsg::Failure) => {
+                    return Err(anyhow!("outbound {req} refused by server"))
+                }
+                Some(_) => continue,
+                None => return Err(anyhow!("outbound channel closed before {req} reply")),
+            }
+        }
+    };
+    tokio::time::timeout(REQUEST_REPLY_TIMEOUT, wait)
+        .await
+        .map_err(|_| anyhow!("outbound {req} timed out"))?
 }

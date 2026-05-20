@@ -7,10 +7,11 @@ use frittura_ssh_core::SshWriterProxy;
 use ratatui::layout::Rect;
 use ratatui::prelude::CrosstermBackend;
 use ratatui::{Terminal, TerminalOptions, Viewport};
+use std::time::Duration;
 
 /// Hub lobby is fixed-size so the same TUI works regardless of the user's
 /// real terminal dimensions.
-const HUB_SCREEN_SIZE: (u16, u16) = (80, 24);
+const HUB_SCREEN_SIZE: (u16, u16) = (120, 48);
 
 pub struct Tui {
     username: String,
@@ -29,10 +30,7 @@ impl Tui {
             }),
         };
         let terminal = Terminal::with_options(backend, opts)?;
-        let mut tui = Self {
-            username,
-            terminal,
-        };
+        let mut tui = Self { username, terminal };
         tui.init()?;
         Ok(tui)
     }
@@ -50,7 +48,11 @@ impl Tui {
 
     /// Restore the terminal and close the SSH channel, awaited end-to-end.
     pub async fn close(mut self) {
-        self.terminal.backend_mut().writer_mut().send_and_close().await;
+        self.terminal
+            .backend_mut()
+            .writer_mut()
+            .send_and_close()
+            .await;
     }
 
     pub fn draw_lobby(
@@ -59,6 +61,7 @@ impl Tui {
         selected_idx: usize,
         kick_warning_secs: Option<u32>,
         flash: Option<&str>,
+        selection_elapsed: Duration,
     ) -> AppResult<()> {
         let username = &self.username;
         self.terminal.draw(|frame| {
@@ -69,6 +72,7 @@ impl Tui {
                 selected_idx,
                 kick_warning_secs,
                 flash,
+                selection_elapsed,
             )
         })?;
         Ok(())
@@ -79,4 +83,3 @@ impl Tui {
         Ok(())
     }
 }
-
