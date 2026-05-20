@@ -22,3 +22,17 @@ pub fn kick_warning_secs(
     let secs = remaining.as_secs() as u32 + u32::from(remaining.subsec_nanos() > 0);
     Some(secs)
 }
+
+/// Standard idle-warning banner text. Games should render this in a small
+/// centered, bordered Rect with red-bold styling so the warning looks
+/// identical across the suite. A typical render is:
+///
+/// ```ignore
+/// Paragraph::new(idle_warning_text(secs))
+///     .centered()
+///     .style(Style::new().red().bold())
+///     .block(Block::bordered())
+/// ```
+pub fn idle_warning_text(secs: u32) -> String {
+    format!("idle - kicking in {secs}s, press any key")
+}

@@ -12,6 +12,9 @@ pub enum TerminalEvent {
     Mouse(MouseEvent),
     /// Window-size change `(cols, rows)`.
     Resize(u16, u16),
+    /// Idle countdown - seconds remaining until the client is auto-kicked.
+    /// Only emitted by `spawn_event_converter` when idle params are set.
+    IdleWarning(u32),
     /// The client disconnected; both raw receivers have closed.
     Quit,
 }

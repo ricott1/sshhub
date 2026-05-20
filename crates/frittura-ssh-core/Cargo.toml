@@ -1,6 +1,6 @@
 [package]
 name = "frittura-ssh-core"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "Shared SSH + ratatui runtime for terminal games served over SSH."
 license = "GPL-3.0-only"

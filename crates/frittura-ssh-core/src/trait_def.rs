@@ -75,6 +75,10 @@ pub struct SshSession<A> {
     pub handle: Handle,
     /// `(cols, rows)` the client advertised at `pty_request` time.
     pub initial_size: (u32, u32),
+    /// `Some(cmd)` when the client requested `ssh ... <cmd>` (exec_request);
+    /// `None` for a plain shell. Games that don't care about exec-routing
+    /// can ignore this.
+    pub exec_command: Option<String>,
     /// Raw inbound bytes from the SSH client. Yields `None` on disconnect.
     pub data_rx: mpsc::Receiver<Vec<u8>>,
     /// Window-change events `(cols, rows)`. Yields `None` on disconnect.
@@ -83,18 +87,40 @@ pub struct SshSession<A> {
 
 /// Convenience: drain raw inbound bytes + window-change events into a single
 /// parsed `TerminalEvent` stream. Useful for games that don't need raw
-/// byte access (i.e., everything except the hub itself).
+/// byte access.
+///
+/// Idle behavior:
+/// - `idle_kick = None`: no idle tracking.
+/// - `idle_kick = Some(d)`, `idle_warning = None`: emit `Quit` after `d` of
+///   no `Key` events.
+/// - `idle_kick = Some(d)`, `idle_warning = Some(w)`: emit
+///   `TerminalEvent::IdleWarning(secs)` once per second during the last `w`
+///   of the idle window, then `Quit` at the deadline.
+///
+/// Only `Key` events reset the idle timer - `Resize` and other events don't,
+/// since some terminals fire spurious WINCH events without user input.
 pub fn spawn_event_converter(
     mut data_rx: mpsc::Receiver<Vec<u8>>,
     mut resize_rx: mpsc::Receiver<(u32, u32)>,
+    idle_kick: Option<std::time::Duration>,
+    idle_warning: Option<std::time::Duration>,
 ) -> mpsc::Receiver<TerminalEvent> {
     let (tx, rx) = mpsc::channel::<TerminalEvent>(64);
     tokio::spawn(async move {
+        let mut last_key = std::time::Instant::now();
+        let mut last_warned_secs: Option<u32> = None;
+        let mut idle_ticker = tokio::time::interval(std::time::Duration::from_millis(200));
+        idle_ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
         loop {
             tokio::select! {
                 bytes = data_rx.recv() => {
                     let Some(bytes) = bytes else { break; };
                     if let Some(ev) = crate::input::convert_data_to_terminal_event(&bytes) {
+                        if matches!(ev, TerminalEvent::Key(_)) {
+                            last_key = std::time::Instant::now();
+                            last_warned_secs = None;
+                        }
                         if tx.send(ev).await.is_err() { break; }
                     }
                 }
@@ -102,6 +128,21 @@ pub fn spawn_event_converter(
                     let Some((w, h)) = resize else { break; };
                     let ev = TerminalEvent::Resize(w.min(u16::MAX as u32) as u16, h.min(u16::MAX as u32) as u16);
                     if tx.send(ev).await.is_err() { break; }
+                }
+                _ = idle_ticker.tick(), if idle_kick.is_some() => {
+                    let kick = idle_kick.expect("guarded by select condition");
+                    let now = std::time::Instant::now();
+                    if now.saturating_duration_since(last_key) >= kick {
+                        break;
+                    }
+                    if let Some(warn) = idle_warning {
+                        if let Some(secs) = crate::idle::kick_warning_secs(last_key, now, kick, warn) {
+                            if last_warned_secs != Some(secs) {
+                                last_warned_secs = Some(secs);
+                                if tx.send(TerminalEvent::IdleWarning(secs)).await.is_err() { break; }
+                            }
+                        }
+                    }
                 }
             }
         }

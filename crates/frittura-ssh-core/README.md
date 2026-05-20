@@ -40,6 +40,11 @@ For a typical `Receiver<TerminalEvent>` stream (keys, mouse, resizes, quit),
 call `frittura_ssh_core::spawn_event_converter(session.data_rx, session.resize_rx)`
 inside `on_session`.
 
+`on_session` fires when the client sends either a `shell_request` (no command,
+`ssh user@host`) or an `exec_request` (`ssh -t user@host <command>`). In the
+latter case the requested command shows up in `session.exec_command` — a hub
+can use this to route directly to a named game.
+
 ## Examples in the wild
 
 - [sshattrick](https://github.com/ricott1/sshattrick) — hockey

@@ -132,7 +132,27 @@ impl<G: SshGame> server::Handler for AppClient<G> {
         let handle = session.handle();
         self.channel_mut(id)?
             .pty_request(id, term.to_string(), width, height, handle)
-            .await
+            .await?;
+        session.channel_success(id)?;
+        Ok(())
+    }
+
+    async fn shell_request(&mut self, id: ChannelId, session: &mut Session) -> anyhow::Result<()> {
+        self.channel_mut(id)?.shell_request().await?;
+        session.channel_success(id)?;
+        Ok(())
+    }
+
+    async fn exec_request(
+        &mut self,
+        id: ChannelId,
+        data: &[u8],
+        session: &mut Session,
+    ) -> anyhow::Result<()> {
+        let command = String::from_utf8_lossy(data).into_owned();
+        self.channel_mut(id)?.exec_request(command).await?;
+        session.channel_success(id)?;
+        Ok(())
     }
 
     async fn window_change_request(

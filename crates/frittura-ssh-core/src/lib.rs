@@ -48,7 +48,7 @@ pub mod trait_def;
 pub mod writer;
 
 pub use event::TerminalEvent;
-pub use idle::kick_warning_secs;
+pub use idle::{idle_warning_text, kick_warning_secs};
 pub use input::{convert_data_to_terminal_event, CMD_RESIZE};
 pub use keys::load_or_generate;
 pub use russh::keys::{HashAlg, PublicKey};
